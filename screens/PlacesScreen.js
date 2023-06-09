@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native'
-import React, { useLayoutEffect, useState } from 'react'
+import React, { useLayoutEffect, useState, useEffect } from 'react'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import { Octicons } from '@expo/vector-icons';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,10 +8,13 @@ import PropertyCard from '../components/PropertyCard';
 import { BottomModal, ModalContent, ModalFooter, ModalTitle, SlideAnimation } from 'react-native-modals';
 import { Entypo } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 const PlacesScreen = () => {
     const [modalvisible, setmodalvisible] = useState(false)
     const [selectedFilter, setSelectedfilter] = useState([])
     const route = useRoute()
+    const [loading, setLoading] = useState(false)
     const navigation = useNavigation()
     const data = [
         {
@@ -485,7 +488,7 @@ const PlacesScreen = () => {
             filter: "cost:High to Low",
         },
     ];
-    const [sortedData, setSortedData] = useState(data)
+    const [sortedData, setSortedData] = useState(items)
     const searchPlaces = data?.filter((item) => item.place === route.params.place)
     const compare = (a, b) => {
         if (a.newPrice > b.newPrice) {
@@ -506,6 +509,21 @@ const PlacesScreen = () => {
         return 0
     }
     console.log(searchPlaces)
+    useEffect(() => {
+        if (items.length > 0) return
+        setLoading(true)
+        const fetchProducts = async () => {
+            const colref = collection(db, "places")
+            const docsSnap = await getDocs(colref)
+            docsSnap.forEach((doc) => {
+                items.push(doc.data())
+
+            });
+            setLoading(false)
+        }
+        fetchProducts()
+    }, [items])
+
     const applyFilter = (filter) => {
         setmodalvisible(false)
         switch (filter) {
@@ -542,6 +560,7 @@ const PlacesScreen = () => {
         })
     }, [])
 
+
     return (
         <View>
             <Pressable style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, padding: 10, backgroundColor: "white" }}>
@@ -568,23 +587,29 @@ const PlacesScreen = () => {
 
 
             </Pressable>
-            <ScrollView style={{ backgroundColor: "#F5F5F5" }}>
-                {sortedData?.filter((item) => item.place === route.params.place)
-                    .map((item) => item.properties.map((property, index) => (
+            {loading ? (
+                <Text>Fetching places ...</Text>
+            ) : (
+                <ScrollView style={{ backgroundColor: "#F5F5F5" }}>
+                    {sortedData?.filter((item) => item.place === route.params.place)
+                        .map((item) => item.properties.map((property, index) => (
 
-                        <PropertyCard
-                            key={index}
-                            rooms={route.params.rooms}
-                            children={route.params.children}
-                            adults={route.params.adults}
-                            selectedDates={route.params.selectedDates}
-                            property={property}
-                            availableRooms={property.rooms} />
+                            <PropertyCard
+                                key={index}
+                                rooms={route.params.rooms}
+                                children={route.params.children}
+                                adults={route.params.adults}
+                                selectedDates={route.params.selectedDates}
+                                property={property}
+                                availableRooms={property.rooms} />
 
-                    )))}
+                        )))}
 
 
-            </ScrollView>
+                </ScrollView>
+            )}
+
+
             <BottomModal
                 onBackdropPress={() => setmodalvisible(!modalvisible)}
                 swipeDirection={['up', 'down']}
